@@ -154,7 +154,7 @@ function generateMaze() {
         console.log("Maze received:", data);  // Add this line
         mazeMatrix = data.maze;
         resetMaze();
-    });
+    }); 
 }
 
 // ✅ Wait for maze to load before finding paths

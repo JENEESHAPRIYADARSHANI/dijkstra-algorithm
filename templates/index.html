@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Maze Game</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <h1>Shortest Path Finder</h1>
+
+    <!-- Flex container for layout -->
+    <div id="main-container">
+        
+        <!-- Left: Info -->
+        <div id="info-container">
+            <p id="steps-message">Output</p>
+            <div id="paths-info">
+                <!-- Filled by JavaScript -->
+            </div>
+        </div>
+
+        <!-- Center: Maze -->
+        <div id="maze-container">
+            <div id="maze"></div>
+        </div>
+
+        <!-- Right: Buttons -->
+        <div id="buttons-container">
+            <button onclick="findPaths()">Find My Love</button>
+            <button onclick="resetMaze()">Reset</button>
+            <button onclick="generateMaze()">Generate New Maze</button>
+        </div>
+
+    </div>
+
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>

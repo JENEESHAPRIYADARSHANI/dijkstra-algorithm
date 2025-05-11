@@ -49,6 +49,22 @@ h1 {
   box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
 }
 
+/* Walls */
+.wall {
+  background-color: black;
+}
+
+/* Available path (blue) */
+.available-path {
+  background-color: #87CEEB; /* Light Blue */
+}
+
+/* Shortest path (yellow) */
+.shortest-path {
+  background-color: yellow !important;
+}
+
+
 #paths-info {
   white-space: pre-line;
   font-family: monospace;

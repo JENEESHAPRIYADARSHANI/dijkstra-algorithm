@@ -1,165 +1,117 @@
-const mazeDiv = document.getElementById('maze');
-let mazeMatrix = []; // Will be populated by generateMaze()
-let highlightedPath = [];
+// Get references to the DOM elements
+const mazeContainer = document.getElementById('maze');
+const pathsInfoContainer = document.getElementById('paths-info');
 
-// Function to draw the maze
-function drawMaze() {
-    mazeDiv.innerHTML = '';  // Clear the maze container
-    for (let i = 0; i < mazeMatrix.length; i++) {
-        for (let j = 0; j < mazeMatrix[i].length; j++) {
+let currentMaze = [];
+
+function generateMaze() {
+    fetch('/generate-maze', {
+        method: 'POST',
+    })
+    .then(response => response.json())
+    .then(data => {
+        currentMaze = data.maze;
+        displayMaze(currentMaze);
+        pathsInfoContainer.textContent = '';
+    });
+}
+
+function displayMaze(maze) {
+    mazeContainer.innerHTML = '';
+
+    for (let row = 0; row < maze.length; row++) {
+        for (let col = 0; col < maze[row].length; col++) {
             const cell = document.createElement('div');
             cell.classList.add('cell');
+            cell.setAttribute('data-row', row);
+            cell.setAttribute('data-col', col);
 
-            if (mazeMatrix[i][j] === 0) {
-                cell.classList.add('wall');  // Wall cells
-            }
-
-            // Mark start point with an image
-            if (i === 0 && j === 1) {
+            if (maze[row][col] === 1) {
+                cell.classList.add('wall');
+            } else if (row === 0 && col === 0) {
                 cell.classList.add('start');
-                const boyImage = document.createElement('img');
-                boyImage.src = 'static/boy.jpeg';
-                boyImage.classList.add('boy-image');
-                cell.appendChild(boyImage);
-            }
-
-            // Mark end point with an image
-            if (i === 8 && j === 7) {
+            } else if (row === 8 && col === 8) {
                 cell.classList.add('end');
-                const girlImage = document.createElement('img');
-                girlImage.src = 'static/girl.jpeg';
-                girlImage.classList.add('girl-image');
-                cell.appendChild(girlImage);
             }
-
-            // Highlight path cells
-            if (highlightedPath.some(([x, y]) => x === i && y === j)) {
-                if (mazeMatrix[i][j] === 1 && !(i === 0 && j === 1) && !(i === 8 && j === 7)) {
-                    cell.classList.add('path');  // Add path highlight class
-                }
-            }
-
-            mazeDiv.appendChild(cell);  // Add the cell to the maze container
+            mazeContainer.appendChild(cell);
         }
     }
 }
 
-// Function to animate the path
-// ... (rest of your code remains unchanged)
-
-function animatePath(path) {
-    highlightedPath = [];
-    let index = 0;
-
-    function step() {
-        if (index < path.length) {
-            const [x, y] = path[index];
-            highlightedPath.push([x, y]);
-            drawMaze();
-
-            // Exclude start and end from step count
-            const stepsTaken = highlightedPath.filter(([a, b]) => !(a === 0 && b === 1) && !(a === 8 && b === 7)).length;
-            updateStepsMessage(stepsTaken);
-
-            index++;
-            setTimeout(step, 300);
-        }
-    }
-
-    step();
+function pathsMatch(path1, path2) {
+    if (path1.length !== path2.length) return false;
+    return path1.every((coord, i) => coord[0] === path2[i][0] && coord[1] === path2[i][1]);
 }
 
+function findPaths() {
+    fetch('/find-path', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ maze: currentMaze })
+    })
+    .then(response => response.json())
+    .then(data => {
+        const allPaths = data.all_paths.map(item => item.path);
+        const shortestPath = data.shortest_path;
 
-function updateStepsMessage(stepCount) {
-    document.getElementById('steps-message').textContent = `Steps taken: ${stepCount}`;
+        displayPathsInfo(data.all_paths, shortestPath);
+        highlightShortestPath(shortestPath);
+    });
 }
 
-function updatePathsInfo(paths) {
-    const pathsInfoDiv = document.getElementById('paths-info');
-    pathsInfoDiv.innerHTML = '';
-
-    if (!paths || paths.length === 0) {
-        pathsInfoDiv.innerHTML = "No paths found!";
+function displayPathsInfo(allPathsRaw, shortestPath) {
+    if (!allPathsRaw || allPathsRaw.length === 0) {
+        pathsInfoContainer.textContent = "No paths found!";
         return;
     }
 
-    // Sort paths by length
-    paths.sort((a, b) => a.length - b.length);
-    
-    const shortestSteps = paths[0].length;
-    let shortestPathIndex = 0;
+    // Sort paths based on steps
+    const sortedPaths = [...allPathsRaw].sort((a, b) => a.steps - b.steps);
 
-    // Build the text content
-    let output = `Total possible paths: ${paths.length}\n\n`;
+    // The shortest path steps count
+    const shortestPathSteps = sortedPaths[0].steps;
 
-    paths.forEach((path, index) => {
-        output += `Path ${index + 1}: ${path.length} steps\n`;
-        if (path.length === shortestSteps && shortestPathIndex === 0) {
-            shortestPathIndex = index + 1; // Store 1-based index
-        }
+    // Find first path with same steps count
+    let shortestPathIndex = sortedPaths.findIndex(pathObj => pathObj.steps === shortestPathSteps) + 1;
+
+    let output = `Total possible paths: ${sortedPaths.length}\n\n`;
+
+    sortedPaths.forEach((pathObj, index) => {
+        output += `Path ${index + 1}: ${pathObj.steps - 1} steps\n`;  // Subtract 1 to show moves
     });
 
-    output += `\nShortest path: Path ${shortestPathIndex}\n\n`;
-    output += `The shortest path is highlighted.`;
+    output += `\nShortest path: Path ${shortestPathIndex} (${shortestPathSteps - 1} steps)\n`;  // Subtract 1 here too
+    output += `\nThe shortest path is highlighted in the maze.`;
 
-    // Display with preserved formatting
-    pathsInfoDiv.innerHTML = `<pre>${output}</pre>`;
+    pathsInfoContainer.innerHTML = `<pre>${output}</pre>`;
 }
 
-// Function to find paths
-function findPaths() {
-    fetch('/get-paths', {
-        method: 'POST',
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.error) {
-            alert(data.error);
-        } else {
-            updatePathsInfo(data.paths); // Just update info, don't draw all paths
 
-            if (data.paths && data.paths.length > 0) {
-                const shortestPath = data.paths[0]; // The shortest path
-                highlightedPath = []; // Clear any existing highlighted path
-                animatePath(shortestPath); // Animate the shortest path properly
+
+function highlightShortestPath(path) {
+    path.forEach((coord, index) => {
+        setTimeout(() => {
+            const [row, col] = coord;
+            const cell = mazeContainer.querySelector(`.cell[data-row='${row}'][data-col='${col}']`);
+            if (cell && !cell.classList.contains('start') && !cell.classList.contains('end')) {
+                cell.classList.add('shortest-path');
             }
-        }
+        }, index * 200);
     });
 }
 
-function drawPaths(paths) {
-    paths.forEach((path, index) => {
-        path.forEach(([x, y]) => {
-            const index = x * mazeMatrix[0].length + y;
-            mazeDiv.children[index].classList.add(`path-${index}`); // Differentiate paths visually
-        });
-    });
-}
-
-// Function to reset the maze
 function resetMaze() {
-    highlightedPath = [];
-    drawMaze();
-    document.getElementById('steps-message').textContent = 'Output';
-    document.getElementById('paths-info').innerHTML = '';
-}
-
-// ✅ Updated: Function to generate maze and THEN call findPaths
-function generateMaze() {
-    return fetch('/generate-maze', {
-        method: 'POST',
-    })
-    .then(response => response.json())
-    .then(data => {
-        console.log("Maze received:", data);  // Add this line
-        mazeMatrix = data.maze;
-        resetMaze();
-    }); 
-}
-
-// ✅ Wait for maze to load before finding paths
-window.onload = function() {
-    generateMaze().then(() => {
-        findPaths(); // Call only after maze is generated
+    const allCells = mazeContainer.querySelectorAll('.cell');
+    allCells.forEach(cell => {
+        cell.classList.remove('shortest-path');
     });
-};
+    pathsInfoContainer.textContent = '';
+}
+
+document.getElementById('generate-btn').addEventListener('click', generateMaze);
+document.getElementById('reset-btn').addEventListener('click', resetMaze);
+document.getElementById('find-btn').addEventListener('click', findPaths);
+
+window.onload = generateMaze;

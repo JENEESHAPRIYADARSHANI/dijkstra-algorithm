@@ -30,9 +30,23 @@ function displayMaze(maze) {
                 cell.classList.add('wall');
             } else if (row === 0 && col === 0) {
                 cell.classList.add('start');
+
+                // Add boy image
+                const boyImg = document.createElement('img');
+                boyImg.src = '/static/boy.jpeg';
+                boyImg.classList.add('boy-image');
+                cell.appendChild(boyImg);
+
             } else if (row === 8 && col === 8) {
                 cell.classList.add('end');
+
+                // Add girl image
+                const girlImg = document.createElement('img');
+                girlImg.src = '/static/girl.jpeg';
+                girlImg.classList.add('girl-image');
+                cell.appendChild(girlImg);
             }
+
             mazeContainer.appendChild(cell);
         }
     }

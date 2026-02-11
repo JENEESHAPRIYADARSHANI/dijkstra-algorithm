@@ -1,102 +1,90 @@
+from flask import Flask, jsonify, render_template, request
 import random
 import heapq
-from flask import Flask, render_template, jsonify
 
 app = Flask(__name__)
 
-# Starting and ending points
-start = (0, 1)
-end = (8, 7)
+DIRECTIONS = [(-1, 0), (1, 0), (0, -1), (0, 1)]
 
-# Maze global variable
-maze = None
+# Generate random 9x9 maze
+def generate_maze():
+    size = 9
+    maze = [[1 for _ in range(size)] for _ in range(size)]
 
-# Directions: up, down, left, right
-directions = [(-1, 0), (1, 0), (0, -1), (0, 1)]
-
-# Modified Dijkstra's algorithm to find the shortest path
-def dijkstra(maze, start, end):
-    rows, cols = len(maze), len(maze[0])
-    distances = {start: 0}
-    queue = [(0, start)]
-    previous = {}
-    visited = set()
-
-    while queue:
-        dist, current = heapq.heappop(queue)
-        if current == end:
-            break
-        if current in visited:
-            continue
-        visited.add(current)
-
-        x, y = current
+    def carve(x, y):
+        directions = [(0, 2), (0, -2), (2, 0), (-2, 0)]
+        random.shuffle(directions)
         for dx, dy in directions:
             nx, ny = x + dx, y + dy
-            if 0 <= nx < rows and 0 <= ny < cols and maze[nx][ny] == 1:
-                neighbor = (nx, ny)
-                new_dist = dist + 1
-                if neighbor not in distances or new_dist < distances[neighbor]:
-                    distances[neighbor] = new_dist
-                    heapq.heappush(queue, (new_dist, neighbor))
-                    previous[neighbor] = current
+            if 0 <= nx < size and 0 <= ny < size and maze[nx][ny] == 1:
+                maze[nx][ny] = 0
+                maze[x + dx // 2][y + dy // 2] = 0
+                carve(nx, ny)
 
-    # Reconstruct the shortest path
+    maze[0][0] = 0
+    carve(0, 0)
+    maze[size - 1][size - 1] = 0
+
+    # Random extra openings
+    for _ in range(random.randint(5, 10)):
+        x, y = random.randint(0, size - 1), random.randint(0, size - 1)
+        maze[x][y] = 0
+
+    return maze
+
+# DFS to find up to 5 paths
+def find_all_paths(maze, start, end, max_paths=5):
+    all_paths = []
     path = []
-    node = end
-    while node in previous:
-        path.append(node)
-        node = previous[node]
-    if node == start:
+
+    def dfs(x, y):
+        if len(all_paths) >= max_paths:
+            return  # stop after 5 paths
+        if (x, y) == end:
+            all_paths.append(list(path) + [end])
+            return
+        for dx, dy in DIRECTIONS:
+            nx, ny = x + dx, y + dy
+            if 0 <= nx < 9 and 0 <= ny < 9 and maze[nx][ny] == 0 and (nx, ny) not in path:
+                path.append((nx, ny))
+                dfs(nx, ny)
+                path.pop()
+
+    path.append(start)
+    dfs(start[0], start[1])
+    return all_paths
+
+# Dijkstra's shortest path
+def dijkstra(maze, start, end):
+    size = 9
+    dist = { (x, y): float('inf') for x in range(size) for y in range(size) }
+    prev = {}
+    dist[start] = 0
+    heap = [(0, start)]
+
+    while heap:
+        cost, (x, y) = heapq.heappop(heap)
+        if (x, y) == end:
+            break
+
+        for dx, dy in DIRECTIONS:
+            nx, ny = x + dx, y + dy
+            if 0 <= nx < size and 0 <= ny < size and maze[nx][ny] == 0:
+                if dist[(x, y)] + 1 < dist[(nx, ny)]:
+                    dist[(nx, ny)] = dist[(x, y)] + 1
+                    prev[(nx, ny)] = (x, y)
+                    heapq.heappush(heap, (dist[(nx, ny)], (nx, ny)))
+
+    path = []
+    current = end
+    while current in prev:
+        path.append(current)
+        current = prev[current]
+    if current == start:
         path.append(start)
         path.reverse()
         return path
-    else:
-        return None
-
-# Generate a random maze
-def generate_maze(rows=9, cols=9):
-    maze = [[1 if random.random() < 0.7 else 0 for _ in range(cols)] for _ in range(rows)]
-    maze[start[0]][start[1]] = 1  # Ensure start is open
-    maze[end[0]][end[1]] = 1      # Ensure end is open
-    return maze
-
-# Generate a valid maze with at least one path from start to end
-def generate_valid_maze(rows=9, cols=9):
-    while True:
-        maze = generate_maze(rows, cols)
-        path = dijkstra(maze, start, end)
-        if path:
-            return maze
-
-# Highlight the shortest path in the maze
-def highlight_shortest_path(maze, path):
-    if not path:
-        return maze
-    for (x, y) in path:
-        maze[x][y] = 2  # Mark shortest path with a '2'
-    return maze
-
-# Function to find multiple paths (basic version)
-def find_multiple_paths(maze, start, end, num_paths=3):
-    all_paths = []
-    original_maze = [row[:] for row in maze]  # Make a copy
-
-    for _ in range(num_paths):
-        path = dijkstra(original_maze, start, end)
-        if path:
-            all_paths.append(path)
-            # Remove a random cell in the found path (except start and end) to encourage new paths
-            if len(path) > 2:
-                removable = random.choice(path[1:-1])
-                x, y = removable
-                original_maze[x][y] = 0  # Add wall
-        else:
-            break
-
-    return all_paths
-
-# Routes
+    return []
 
 @app.route('/')
 def index():
@@ -104,9 +92,8 @@ def index():
 
 @app.route('/generate-maze', methods=['POST'])
 def generate_maze_route():
-    global maze
-    maze = generate_valid_maze()
-    return jsonify({'maze': maze})
+    maze = generate_maze()
+    return jsonify({"maze": maze})
 
 @app.route('/get-path', methods=['POST'])
 def get_path():
@@ -129,10 +116,11 @@ def get_multiple_paths():
     if maze is None:
         return jsonify({'paths': []})
 
-    paths = find_multiple_paths(maze, start, end, num_paths=5)  # You can change 5 to any number of paths you want
+    paths = find_multiple_paths(maze, start, end, num_paths=3)
+    if not paths:
+        return jsonify({'error': 'No paths found'})
 
-    return jsonify({'paths': paths})
-
+    return jsonify({'maze': maze, 'paths': paths})
 
 if __name__ == '__main__':
     app.run(debug=True)

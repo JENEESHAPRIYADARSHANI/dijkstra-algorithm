@@ -129,11 +129,10 @@ def get_multiple_paths():
     if maze is None:
         return jsonify({'paths': []})
 
-    paths = find_multiple_paths(maze, start, end, num_paths=3)
-    if not paths:
-        return jsonify({'error': 'No paths found'})
+    paths = find_multiple_paths(maze, start, end, num_paths=5)  # You can change 5 to any number of paths you want
 
-    return jsonify({'maze': maze, 'paths': paths})
+    return jsonify({'paths': paths})
+
 
 if __name__ == '__main__':
     app.run(debug=True)

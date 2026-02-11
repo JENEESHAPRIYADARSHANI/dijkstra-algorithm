@@ -12,6 +12,9 @@ function drawMaze() {
 
             if (mazeMatrix[i][j] === 0) {
                 cell.classList.add('wall');  // Wall cells
+            } else {
+                // Mark available path cells (blue)
+                cell.classList.add('available-path');
             }
 
             // Mark start point with an image
@@ -32,10 +35,10 @@ function drawMaze() {
                 cell.appendChild(girlImage);
             }
 
-            // Highlight path cells
+            // Highlight shortest path cells (yellow)
             if (highlightedPath.some(([x, y]) => x === i && y === j)) {
-                if (mazeMatrix[i][j] === 1 && !(i === 0 && j === 1) && !(i === 8 && j === 7)) {
-                    cell.classList.add('path');  // Add path highlight class
+                if (!(i === 0 && j === 1) && !(i === 8 && j === 7)) {
+                    cell.classList.add('shortest-path');  // Yellow path
                 }
             }
 
@@ -44,34 +47,23 @@ function drawMaze() {
     }
 }
 
-// Function to animate the path
-// ... (rest of your code remains unchanged)
 
+// Function to animate the path
 function animatePath(path) {
-    highlightedPath = [];
+    highlightedPath = []; // Clear the highlighted path at the start
     let index = 0;
 
     function step() {
         if (index < path.length) {
             const [x, y] = path[index];
-            highlightedPath.push([x, y]);
+            highlightedPath.push([x, y]); // Add the current step to the highlighted path
             drawMaze();
-
-            // Exclude start and end from step count
-            const stepsTaken = highlightedPath.filter(([a, b]) => !(a === 0 && b === 1) && !(a === 8 && b === 7)).length;
-            updateStepsMessage(stepsTaken);
-
             index++;
-            setTimeout(step, 300);
+            setTimeout(step, 300); // Continue to the next step after a delay
         }
     }
 
-    step();
-}
-
-
-function updateStepsMessage(stepCount) {
-    document.getElementById('steps-message').textContent = `Steps taken: ${stepCount}`;
+    step(); // Start the animation
 }
 
 function updatePathsInfo(paths) {
@@ -83,27 +75,33 @@ function updatePathsInfo(paths) {
         return;
     }
 
-    // Sort paths by length
-    paths.sort((a, b) => a.length - b.length);
-    
-    const shortestSteps = paths[0].length;
+    // Sort paths by real step count (excluding start and end)
+    paths.sort((a, b) => 
+        countActualSteps(a) - countActualSteps(b)
+    );
+
+    const shortestSteps = countActualSteps(paths[0]);
     let shortestPathIndex = 0;
 
-    // Build the text content
     let output = `Total possible paths: ${paths.length}\n\n`;
 
     paths.forEach((path, index) => {
-        output += `Path ${index + 1}: ${path.length} steps\n`;
-        if (path.length === shortestSteps && shortestPathIndex === 0) {
-            shortestPathIndex = index + 1; // Store 1-based index
+        const stepCount = countActualSteps(path);
+        output += `Path ${index + 1}: ${stepCount} steps\n`;
+        if (stepCount === shortestSteps && shortestPathIndex === 0) {
+            shortestPathIndex = index + 1;
         }
     });
 
     output += `\nShortest path: Path ${shortestPathIndex}\n\n`;
     output += `The shortest path is highlighted.`;
 
-    // Display with preserved formatting
     pathsInfoDiv.innerHTML = `<pre>${output}</pre>`;
+}
+
+// ✅ Helper function to count steps excluding start (0,1) and end (8,7)
+function countActualSteps(path) {
+    return path.filter(([a, b]) => !(a === 0 && b === 1) && !(a === 8 && b === 7)).length;
 }
 
 // Function to find paths
@@ -116,12 +114,15 @@ function findPaths() {
         if (data.error) {
             alert(data.error);
         } else {
-            updatePathsInfo(data.paths); // Just update info, don't draw all paths
+            updatePathsInfo(data.paths); // Update path counts info first
 
             if (data.paths && data.paths.length > 0) {
-                const shortestPath = data.paths[0]; // The shortest path
+                // ✅ Always find and animate the real shortest path
+                const sortedPaths = data.paths.slice().sort((a, b) => countActualSteps(a) - countActualSteps(b));
+                const shortestPath = sortedPaths[0]; 
+                
                 highlightedPath = []; // Clear any existing highlighted path
-                animatePath(shortestPath); // Animate the shortest path properly
+                animatePath(shortestPath); // Animate the sorted shortest path
             }
         }
     });
@@ -140,18 +141,17 @@ function drawPaths(paths) {
 function resetMaze() {
     highlightedPath = [];
     drawMaze();
-    document.getElementById('steps-message').textContent = 'Output';
     document.getElementById('paths-info').innerHTML = '';
 }
 
-// ✅ Updated: Function to generate maze and THEN call findPaths
+// ✅ Function to generate maze and THEN call findPaths
 function generateMaze() {
     return fetch('/generate-maze', {
         method: 'POST',
     })
     .then(response => response.json())
     .then(data => {
-        console.log("Maze received:", data);  // Add this line
+        console.log("Maze received:", data);
         mazeMatrix = data.maze;
         resetMaze();
     }); 

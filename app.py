@@ -79,6 +79,60 @@ def generate_valid_maze(rows=9, cols=9):
             return new_maze
 
 
+def dijkstra_with_tracking(maze, start, end):
+    rows, cols = len(maze), len(maze[0])
+
+    distances = {start: 0}
+    queue = [(0, start)]
+    previous = {}
+    visited = set()
+    visit_order = []
+
+    while queue:
+        dist, current = heapq.heappop(queue)
+
+        if current in visited:
+            continue
+
+        visited.add(current)
+        visit_order.append(current)
+
+        if current == end:
+            break
+
+        x, y = current
+
+        for dx, dy in DIRECTIONS:
+            nx, ny = x + dx, y + dy
+
+            if 0 <= nx < rows and 0 <= ny < cols and maze[nx][ny] == 1:
+                neighbor = (nx, ny)
+                new_dist = dist + 1
+
+                if neighbor not in distances or new_dist < distances[neighbor]:
+                    distances[neighbor] = new_dist
+                    previous[neighbor] = current
+                    heapq.heappush(queue, (new_dist, neighbor))
+
+    # Reconstruct shortest path
+    path = []
+    node = end
+
+    while node in previous:
+        path.append(node)
+        node = previous[node]
+
+    if node == start:
+        path.append(start)
+        path.reverse()
+    else:
+        path = None
+
+    return path, visit_order
+
+
+
+
 # -------------------------
 # Routes
 # -------------------------
@@ -101,12 +155,16 @@ def get_path():
     if maze is None:
         return jsonify({"error": "Maze not generated"})
 
-    path = dijkstra(maze, START, END)
+    path, visit_order = dijkstra_with_tracking(maze, START, END)
 
     if not path:
         return jsonify({"error": "No path found"})
 
-    return jsonify({"path": path})
+    return jsonify({
+        "shortest_path": path,
+        "shortest_steps": len(path) - 1,
+        "visited_nodes": len(visit_order)
+    })
 
 
 if __name__ == "__main__":

@@ -77,8 +77,43 @@ async function findPath() {
         return;
     }
 
-    animatePath(data.path);
+
+    displayDijkstraInfo(data);
+
+    // Animate path AFTER printing steps
+    animatePath(data.shortest_path);
 }
+
+
+function displayPathInfo(pathNumber, steps, path) {
+    const infoContainer = document.getElementById("paths-info");
+
+    let output = "";
+    output += `Total possible paths: 1\n\n`;
+    output += `Shortest Path: Path ${pathNumber}\n`;
+    output += `Steps Required: ${steps}\n\n`;
+    output += `Path Coordinates:\n`;
+
+    path.forEach((coord, index) => {
+        output += `Step ${index}: (${coord[0]}, ${coord[1]})\n`;
+    });
+
+    infoContainer.innerHTML = `<pre>${output}</pre>`;
+}
+
+function displayDijkstraInfo(data) {
+    const infoContainer = document.getElementById("paths-info");
+
+    let output = "";
+    output += "Dijkstra's Algorithm Result\n\n";
+    // output += "Nodes Visited: " + data.visited_nodes + "\n";
+    output += "Shortest Path Length: " + data.shortest_steps + "\n";
+
+    infoContainer.innerHTML = "<pre>" + output + "</pre>";
+}
+
+
+
 
 
 // -----------------------------
@@ -94,18 +129,14 @@ function animatePath(path) {
         highlightedPath.push(path[index]);
         renderMaze();
 
-        const steps = highlightedPath.filter(
-            ([x, y]) => !(x === 0 && y === 1) && !(x === 8 && y === 7)
-        ).length;
-
-        stepsMessage.textContent = `Steps taken: ${steps}`;
-
         index++;
-        setTimeout(step, 250);
+        setTimeout(step, 200);
     }
 
     step();
 }
+
+
 
 
 // -----------------------------
